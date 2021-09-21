@@ -1,80 +1,53 @@
+#!/usr/bin/env groovy
+
 pipeline {
     agent any
-
-    options {
-        timestamps() // Add timestamps to logging
-        timeout(time: 12, unit: 'HOURS') // Abort pipleine
-
-        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
-        disableConcurrentBuilds()
-    }
+/*
     environment {
-        PATH = "/usr/local/bin:$PATH"
+        NAME = readMavenPom().getArtifactId()
     }
-    parameters {
-        choice(name: 'TestName',
-               choices: [
-                   'Basic GoPath',
-                   'Allocation Mode',
-                   'Allocation Required',
-                   'Auto GPS-SDL',
-                   'Block IV Non-GPS',
-                   'Specific Tasks',
-                   'ALL'
-               ],
-               description: 'Select a Testcase to run')
+*/
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        buildDiscarder(logRotator(daysToKeepStr: '10', numToKeepStr: '5', artifactNumToKeepStr: '2'))
     }
 
     stages {
-        stage('Init') {
+        stage("ssh-test") {
             steps {
-                echo "Stage: Init"
-                echo "branch=${env.BRANCH_NAME}, test=${params.TestName}"
-            }
-        }
-        stage('Common Config') {
-            steps {
-                echo 'Stage: Common Config'
-                // Checkout repo with common config files/scripts to 'common' folder
-                checkout([$class: 'GitSCM',
-                          branches: [[name: '*/main']],
-                          doGenerateSubmoduleConfigurations: false,
-                          extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'common']],
-                          submoduleCfg: [], userRemoteConfigs: [[url: 'file:///home/jenkins/gitrepos/cicd-common']]
-                         ])
-            }
-        }
-        stage('XXX') {
-            steps {
-                echo "Stage: Test Manager Test"
-                dir('common') {
-                    // Transfer DX data from TTWCS to AM
-                    sh '''
-                    ./transfer_data_to_am.sh
-                    ls -l
-                    idtag=$(cat currentDxFile)
-                    echo "Starting Analysis with Analysis idtag=${idtag}"
-                    '''   
+                sshagent(['jenkins']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no  ls -lrt
+                    """
                 }
-                build(job: '/AnalysisMgr/main', parameters: [string(name: 'idtag', value: "${idtag}")], wait: true)   
-            }        
-        }
-        stage('Cleanup') {
-            steps {
-                echo "Stage: Cleanup"
             }
         }
-    }
-    post {
-        always {
-            echo "post/always"
-            //deleteDir() ////////////////////////////////////
+        
+/*
+        stage("Git Checkout") {
+            steps {
+                git branch: 'develop',
+                credentialsId: 'jenkins', url: 'https://gitlab.gov/ih/ih-por.git'
+            }
         }
-        success {
-            echo "post/success"
+        stage('Maven build') {
+            steps {
+                sh "mvn clean package"
+                sh "mv target/*.war target/UI.war"
+            }
         }
-        failure {
-            echo "post/failure"
+        stage("deploy-dev") {
+            steps {
+                sshagent(['user-id-tomcat-dev']) {
+                    sh """
+                    scp -o StrictHostKeyChecking=no  target/UI.war  root@192.168.1.000:/opt/tomcat/webapps/
+                    ssh root@192.168.1.000 /opt/tomcat/bin/shutdown.sh
+                    ssh root@192.168.1.000 /opt/tomcat/bin/startup.sh
+                    """
+                }
+            }
         }
+*/
+
     }
 }
