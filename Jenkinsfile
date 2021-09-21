@@ -17,7 +17,7 @@ pipeline {
             steps {
                 sshagent(['jenkins']) {
                     sh """
-                    ssh -o StrictHostKeyChecking=no ttwcsop@10.1.1.3 'ls -lrt'
+                    scp -v -o StrictHostKeyChecking=no ttwcsop@10.1.1.3:/home/ttwcsop/startvnc.sh /home/jenkins
                     """
                 }
             }
